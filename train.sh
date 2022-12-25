@@ -1,0 +1,14 @@
+python run_train.py \
+   --data_dir data \
+   --src_file gu_chen.json \
+   --model_type unilm \
+   --model_name_or_path unilm_model\
+   --output_dir kuakua_robot_model\
+   --max_seq_length 128 \
+   --max_position_embeddings 512 \
+   --do_train \
+   --do_lower_case \
+   --train_batch_size 32 \
+   --learning_rate 2e-5 \
+   --logging_steps 100 \
+   --num_train_epochs 1
