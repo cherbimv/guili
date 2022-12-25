@@ -22,6 +22,10 @@ except ImportError:
     from tensorboardX import SummaryWriter
 import utils_seq2seq
 
+import wandb
+
+wandb.init(project="unilm", entity="alsace713")
+
 
 ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys())
                   for conf in (UnilmConfig,)), ())
@@ -153,6 +157,14 @@ def main():
 
     args = parser.parse_args()
 
+    wandb.config = {
+        "learning_rate": args.learning_rate,
+        "epochs": args.num_train_epochs,
+        "batch_size": args.train_batch_size
+    }
+
+
+
     if not(args.model_recover_path and Path(args.model_recover_path).exists()):
         args.model_recover_path = None
 
@@ -232,6 +244,7 @@ def main():
     t_total = int(len(train_dataloader) * args.num_train_epochs /
                   args.gradient_accumulation_steps)
 
+
     # Prepare model
     recover_step = _get_max_epoch_model(args.output_dir)
     if args.local_rank not in (-1, 0):
@@ -261,6 +274,7 @@ def main():
 
     model.to(device)
 
+
     # Prepare optimizer
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -270,6 +284,7 @@ def main():
         {'params': [p for n, p in param_optimizer if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
+
     optimizer = AdamW(optimizer_grouped_parameters,
                       lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=int(args.warmup_proportion*t_total), num_training_steps=t_total)
@@ -318,6 +333,7 @@ def main():
         logger.info("  Batch size = %d", args.train_batch_size)
         logger.info("  Num steps = %d", t_total)
 
+
         model.train()
         if recover_step:
             start_epoch = recover_step+1
@@ -351,6 +367,12 @@ def main():
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), args.max_grad_norm)
+
+
+                wandb.log({"loss": loss})
+
+                # Optional
+                wandb.watch(model)
 
                 if (step + 1) % args.gradient_accumulation_steps == 0:
                     optimizer.step()
